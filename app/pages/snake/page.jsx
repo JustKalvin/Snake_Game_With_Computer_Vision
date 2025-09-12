@@ -9,9 +9,9 @@ import React, { useState, useEffect, useRef } from "react";
 // =======================================================================
 
 const HAND_DETECTOR_CONFIG = {
-  MODEL_PATH: "/best_web_model2/model.json",
-  CLASS_NAMES: ["KANAN", "KIRI", "BAWAH", "ATAS"],
-  CONFIDENCE_THRESHOLD: 0.03, // Naikkan sedikit threshold agar lebih stabil
+  MODEL_PATH: "/best_web_model3/model.json",
+  CLASS_NAMES: ["atas", "bawah", "kanan", "kiri"],
+  CONFIDENCE_THRESHOLD: 0.5, // Naikkan sedikit threshold agar lebih stabil
 };
 
 function HandDetector({ onPrediction }) {
@@ -178,16 +178,16 @@ function SnakeGame({ direction }) {
     if (gameOver) return;
 
     // Logika agar ular tidak bisa berbalik arah
-    if (direction === "ATAS" && currentDirection.y === 1) return;
-    if (direction === "BAWAH" && currentDirection.y === -1) return;
-    if (direction === "KIRI" && currentDirection.x === 1) return;
-    if (direction === "KANAN" && currentDirection.x === -1) return;
+    if (direction === "atas" && currentDirection.y === 1) return;
+    if (direction === "bawah" && currentDirection.y === -1) return;
+    if (direction === "kiri" && currentDirection.x === 1) return;
+    if (direction === "kanan" && currentDirection.x === -1) return;
 
     switch (direction) {
-      case "ATAS": setCurrentDirection({ x: 0, y: -1 }); break;
-      case "BAWAH": setCurrentDirection({ x: 0, y: 1 }); break;
-      case "KIRI": setCurrentDirection({ x: -1, y: 0 }); break;
-      case "KANAN": setCurrentDirection({ x: 1, y: 0 }); break;
+      case "atas": setCurrentDirection({ x: 0, y: -1 }); break;
+      case "bawah": setCurrentDirection({ x: 0, y: 1 }); break;
+      case "kiri": setCurrentDirection({ x: -1, y: 0 }); break;
+      case "kanan": setCurrentDirection({ x: 1, y: 0 }); break;
       default: break;
     }
   }, [direction]);
