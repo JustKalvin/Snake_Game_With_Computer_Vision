@@ -138,135 +138,182 @@ function HandDetector({ onPrediction }) {
   );
 }
 
+// = a new helper function outside the component
+// to draw rectangles with rounded corners.
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.arcTo(x + width, y, x + width, y + radius, radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+  ctx.lineTo(x + radius, y + height);
+  ctx.arcTo(x, y + height, x, y + height - radius, radius);
+  ctx.lineTo(x, y + radius);
+  ctx.arcTo(x, y, x + radius, y, radius);
+  ctx.closePath();
+  ctx.fill();
+}
+
+
 // =======================================================================
-// 🔹 KOMPONEN 2: GAME SNAKE
+// 🔹 KOMPONEN 2: GAME SNAKE (DENGAN TAMPILAN BARU)
 // =======================================================================
 
 const GAME_CONFIG = {
-  BOARD_SIZE: 20,
+  BOARD_SIZE_X: 17,
+  BOARD_SIZE_Y: 15,
   GRID_SIZE: 20,
-  INITIAL_SPEED: 200, // ms
+  INITIAL_SPEED: 200,
+  SNAKE_BORDER_RADIUS: 6, // Atur radius di sini (misal: 10 untuk lingkaran penuh)
 };
 
 function SnakeGame({ direction }) {
   const canvasRef = useRef(null);
-  const [snake, setSnake] = useState([{ x: 10, y: 10 }]);
-  const [food, setFood] = useState({ x: 15, y: 15 });
-  const [currentDirection, setCurrentDirection] = useState({ x: 0, y: -1 }); // Awalnya gerak ke ATAS
+
+  // ... (semua logika state dan fungsi lain tetap sama)
+  const generateFoodPosition = (snakeBody) => {
+    let newFoodPosition;
+    do {
+      newFoodPosition = {
+        x: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE_X),
+        y: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE_Y),
+      };
+    } while (
+      snakeBody.some(
+        (segment) => segment.x === newFoodPosition.x && segment.y === newFoodPosition.y
+      )
+    );
+    return newFoodPosition;
+  };
+
+  const getInitialSnake = () => [{ x: 8, y: 7 }];
+
+  const [snake, setSnake] = useState(getInitialSnake);
+  const [food, setFood] = useState(() => generateFoodPosition(getInitialSnake()));
+  const [currentDirection, setCurrentDirection] = useState({ x: 0, y: -1 });
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
 
-  // Fungsi untuk me-reset game
   const resetGame = () => {
-    setSnake([{ x: 10, y: 10 }]);
-    setFood(generateFoodPosition());
+    const initialSnake = getInitialSnake();
+    setSnake(initialSnake);
+    setFood(generateFoodPosition(initialSnake));
     setCurrentDirection({ x: 0, y: -1 });
     setGameOver(false);
     setScore(0);
   };
 
-  // Fungsi untuk generate posisi makanan baru
-  const generateFoodPosition = () => {
-    return {
-      x: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE),
-      y: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE),
-    };
-  };
-
-  // Update arah gerakan berdasarkan input dari HandDetector
   useEffect(() => {
     if (gameOver) return;
-
-    // Logika agar ular tidak bisa berbalik arah
-    if (direction === "atas" && currentDirection.y === 1) return;
-    if (direction === "bawah" && currentDirection.y === -1) return;
-    if (direction === "kiri" && currentDirection.x === 1) return;
-    if (direction === "kanan" && currentDirection.x === -1) return;
-
-    switch (direction) {
+    const move = direction.toLowerCase();
+    if (move === "atas" && currentDirection.y === 1) return;
+    if (move === "bawah" && currentDirection.y === -1) return;
+    if (move === "kiri" && currentDirection.x === 1) return;
+    if (move === "kanan" && currentDirection.x === -1) return;
+    switch (move) {
       case "atas": setCurrentDirection({ x: 0, y: -1 }); break;
       case "bawah": setCurrentDirection({ x: 0, y: 1 }); break;
       case "kiri": setCurrentDirection({ x: -1, y: 0 }); break;
       case "kanan": setCurrentDirection({ x: 1, y: 0 }); break;
       default: break;
     }
-  }, [direction]);
+  }, [direction, gameOver]);
 
-  // Game Loop Utama
   useEffect(() => {
     if (gameOver) return;
-
     const gameInterval = setInterval(() => {
       setSnake((prevSnake) => {
         const newSnake = [...prevSnake];
         const head = { ...newSnake[0] };
         head.x += currentDirection.x;
         head.y += currentDirection.y;
-
-        // Cek tabrakan dinding
-        if (head.x < 0 || head.x >= GAME_CONFIG.BOARD_SIZE || head.y < 0 || head.y >= GAME_CONFIG.BOARD_SIZE) {
+        if (head.x < 0 || head.x >= GAME_CONFIG.BOARD_SIZE_X || head.y < 0 || head.y >= GAME_CONFIG.BOARD_SIZE_Y) {
           setGameOver(true);
           return prevSnake;
         }
-
-        // Cek tabrakan dengan diri sendiri
         for (let i = 1; i < newSnake.length; i++) {
           if (head.x === newSnake[i].x && head.y === newSnake[i].y) {
             setGameOver(true);
             return prevSnake;
           }
         }
-
         newSnake.unshift(head);
-
-        // Cek makan
         if (head.x === food.x && head.y === food.y) {
           setScore(s => s + 10);
-          setFood(generateFoodPosition());
+          setFood(generateFoodPosition(newSnake));
         } else {
           newSnake.pop();
         }
-
         return newSnake;
       });
     }, GAME_CONFIG.INITIAL_SPEED);
-
     return () => clearInterval(gameInterval);
   }, [snake, currentDirection, food, gameOver]);
 
-
-  // Render game di canvas
+  // ✅ PERUBAHAN UTAMA ADA DI SINI (LOGIKA RENDER)
   useEffect(() => {
+    if (!canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const gridSize = GAME_CONFIG.GRID_SIZE;
+    const radius = GAME_CONFIG.SNAKE_BORDER_RADIUS;
 
-    // Bersihkan canvas
-    ctx.fillStyle = "#2d3436"; // Warna background
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 1. Gambar latar belakang (pola grid) - tetap sama
+    for (let row = 0; row < GAME_CONFIG.BOARD_SIZE_Y; row++) {
+      for (let col = 0; col < GAME_CONFIG.BOARD_SIZE_X; col++) {
+        ctx.fillStyle = (row + col) % 2 === 0 ? "#A3D866" : "#83C94D";
+        ctx.fillRect(col * gridSize, row * gridSize, gridSize, gridSize);
+      }
+    }
 
-    // Gambar ular
-    ctx.fillStyle = "#00b894"; // Warna ular
+    // 2. Gambar ular dengan tampilan baru
     snake.forEach((segment, index) => {
-      ctx.fillStyle = index === 0 ? "#55efc4" : "#00b894"; // Kepala lebih cerah
-      ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+      const x = segment.x * gridSize;
+      const y = segment.y * gridSize;
+
+      if (index === 0) {
+        // KEPALA ULAR: Buat gradient berdasarkan arah gerak
+        let gradient;
+        if (currentDirection.x === 1) { // Kanan
+          gradient = ctx.createLinearGradient(x, y, x + gridSize, y);
+        } else if (currentDirection.x === -1) { // Kiri
+          gradient = ctx.createLinearGradient(x + gridSize, y, x, y);
+        } else if (currentDirection.y === 1) { // Bawah
+          gradient = ctx.createLinearGradient(x, y, x, y + gridSize);
+        } else { // Atas
+          gradient = ctx.createLinearGradient(x, y + gridSize, x, y);
+        }
+
+        gradient.addColorStop(0, "#5E9EFF"); // Warna gradient awal
+        gradient.addColorStop(1, "#2F65C0"); // Warna gradient akhir
+        ctx.fillStyle = gradient;
+
+      } else {
+        // BADAN ULAR: Warna solid
+        ctx.fillStyle = "#3668A6";
+      }
+
+      // Gambar segmen menggunakan fungsi baru
+      drawRoundedRect(ctx, x + 1, y + 1, gridSize - 2, gridSize - 2, radius);
     });
 
-    // Gambar makanan
-    ctx.fillStyle = "#d63031"; // Warna makanan
-    ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+    // 3. Gambar makanan dengan tampilan baru (opsional)
+    ctx.fillStyle = "#E86F6F";
+    drawRoundedRect(ctx, food.x * gridSize + 1, food.y * gridSize + 1, gridSize - 2, gridSize - 2, radius);
 
-  }, [snake, food]);
+    // TAMBAHKAN `currentDirection` karena gradient bergantung padanya
+  }, [snake, food, currentDirection]);
 
-
+  // Return JSX (tetap sama)
   return (
     <div className="flex flex-col items-center">
       <h2 className="text-xl font-bold mb-2">Skor: {score}</h2>
       <div className="relative">
         <canvas
           ref={canvasRef}
-          width={GAME_CONFIG.BOARD_SIZE * GAME_CONFIG.GRID_SIZE}
-          height={GAME_CONFIG.BOARD_SIZE * GAME_CONFIG.GRID_SIZE}
+          width={GAME_CONFIG.BOARD_SIZE_X * GAME_CONFIG.GRID_SIZE}
+          height={GAME_CONFIG.BOARD_SIZE_Y * GAME_CONFIG.GRID_SIZE}
           className="bg-gray-800 border-4 border-gray-300 rounded-lg"
         />
         {gameOver && (
