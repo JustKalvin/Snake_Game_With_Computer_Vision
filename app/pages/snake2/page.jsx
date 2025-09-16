@@ -9,9 +9,18 @@ import React, { useState, useEffect, useRef } from "react";
 // =======================================================================
 
 const HAND_DETECTOR_CONFIG = {
-  MODEL_PATH: "/best_web_model3/model.json",
-  CLASS_NAMES: ["atas", "bawah", "kanan", "kiri"],
-  CONFIDENCE_THRESHOLD: 0.6,
+  MODEL_PATH: "/best_web_model8/model.json",
+  CLASS_NAMES: [
+    "Help Me",
+    "kiri",
+    "kanan",
+    "Level 3",
+    "Level 4",
+    "Level 5",
+    "atas",
+    "bawah"
+  ],
+  CONFIDENCE_THRESHOLD: 0.25,
 };
 
 // UKURAN BARU: Grid size diperbesar dari 20 menjadi 28
