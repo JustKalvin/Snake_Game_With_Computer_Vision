@@ -11,14 +11,14 @@ import React, { useState, useEffect, useRef } from "react";
 const HAND_DETECTOR_CONFIG = {
   MODEL_PATH: "/best_web_model8/model.json",
   CLASS_NAMES: [
-    "Help Me",
-    "kiri",
-    "kanan",
-    "Level 3",
-    "Level 4",
-    "Level 5",
-    "atas",
-    "bawah"
+    "",
+    "LEFT",
+    "RIGHT",
+    "",
+    "",
+    "",
+    "UP",
+    "DOWN"
   ],
   CONFIDENCE_THRESHOLD: 0.25,
 };
@@ -217,15 +217,15 @@ function SnakeGame({ direction }) {
   useEffect(() => {
     if (gameOver) return;
     const move = direction.toLowerCase();
-    if (move === "atas" && currentDirection.y === 1) return;
-    if (move === "bawah" && currentDirection.y === -1) return;
-    if (move === "kiri" && currentDirection.x === 1) return;
-    if (move === "kanan" && currentDirection.x === -1) return;
+    if (move === "UP" && currentDirection.y === 1) return;
+    if (move === "DOWN" && currentDirection.y === -1) return;
+    if (move === "LEFT" && currentDirection.x === 1) return;
+    if (move === "RIGHT" && currentDirection.x === -1) return;
     switch (move) {
-      case "atas": setCurrentDirection({ x: 0, y: -1 }); break;
-      case "bawah": setCurrentDirection({ x: 0, y: 1 }); break;
-      case "kiri": setCurrentDirection({ x: -1, y: 0 }); break;
-      case "kanan": setCurrentDirection({ x: 1, y: 0 }); break;
+      case "UP": setCurrentDirection({ x: 0, y: -1 }); break;
+      case "DOWN": setCurrentDirection({ x: 0, y: 1 }); break;
+      case "LEFT": setCurrentDirection({ x: -1, y: 0 }); break;
+      case "RIGHT": setCurrentDirection({ x: 1, y: 0 }); break;
       default: break;
     }
   }, [direction, gameOver]);
@@ -333,7 +333,7 @@ function SnakeGame({ direction }) {
 // =======================================================================
 
 export default function GamePage() {
-  const [lastPrediction, setLastPrediction] = useState("ATAS");
+  const [lastPrediction, setLastPrediction] = useState("UP");
   const handlePrediction = (prediction) => {
     if (prediction !== lastPrediction) {
       setLastPrediction(prediction);
@@ -360,12 +360,12 @@ export default function GamePage() {
         {/* Kontainer Utama */}
         <div className="flex flex-col lg:flex-row gap-8 w-full max-w-7xl justify-center items-start">
 
-          {/* Sisi Kiri: Game */}
+          {/* Sisi LEFT: Game */}
           <section className="w-full lg:w-1/2 animate-slide-in-left">
             <SnakeGame direction={lastPrediction} />
           </section>
 
-          {/* Sisi Kanan: Kamera & Info */}
+          {/* Sisi RIGHT: Kamera & Info */}
           <section className="w-full lg:w-1/2 flex flex-col gap-8 animate-slide-in-right">
             <HandDetector onPrediction={handlePrediction} />
             <div className="w-full max-w-lg mx-auto bg-gray-900/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-700 text-center">

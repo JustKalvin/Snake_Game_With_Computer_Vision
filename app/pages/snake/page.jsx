@@ -3,16 +3,104 @@
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl";
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image"; // ⬅️ untuk tutorial grid
 
 // =======================================================================
-// 🔹 KOMPONEN 1: DETEKTOR TANGAN (Dengan sedikit modifikasi)
+// 🔹 KONFIGURASI & FUNGSI BANTUAN
 // =======================================================================
+
+const MOVE_MAPPING = {
+  "atas": "up",
+  "bawah": "down",
+  "kiri": "left",
+  "kanan": "right",
+};
+
 
 const HAND_DETECTOR_CONFIG = {
-  MODEL_PATH: "/best_web_model3/model.json",
-  CLASS_NAMES: ["atas", "bawah", "kanan", "kiri"],
-  CONFIDENCE_THRESHOLD: 0.5, // Naikkan sedikit threshold agar lebih stabil
+  MODEL_PATH: "/best_web_model8/model.json",
+  CLASS_NAMES: ["", "kiri", "kanan", "", "", "", "atas", "bawah"],
+  CONFIDENCE_THRESHOLD: 0.25,
 };
+
+const GAME_CONFIG = {
+  BOARD_SIZE_X: 17,
+  BOARD_SIZE_Y: 15,
+  GRID_SIZE: 28,
+  INITIAL_SPEED: 500,
+  SNAKE_BORDER_RADIUS: 8,
+};
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.arcTo(x + width, y, x + width, y + radius, radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+  ctx.lineTo(x + radius, y + height);
+  ctx.arcTo(x, y + height, x, y + height - radius, radius);
+  ctx.lineTo(x, y + radius);
+  ctx.arcTo(x, y, x + radius, y, radius);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// =======================================================================
+// 🔹 KOMPONEN TUTORIAL
+// =======================================================================
+
+function TutorialScreen({ onStartGame }) {
+  const tutorialItems = [
+    { src: "/img/UP.jpg", label: "UP" },
+    { src: "/img/DOWN.jpg", label: "DOWN" },
+    { src: "/img/LEFT.jpg", label: "LEFT" },
+    { src: "/img/RIGHT.jpg", label: "RIGHT" },
+  ];
+
+  return (
+    <div className="relative z-10 w-full flex flex-col items-center justify-center animate-fade-in">
+      <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-emerald-500 mb-8">
+        Guidance To Play
+      </h1>
+      <p className="text-lg text-gray-400 mb-12">
+        Use these hand commands to controll the snake.
+      </p>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+        {tutorialItems.map((item, index) => (
+          <div
+            key={item.label}
+            className="flex flex-col items-center gap-4 bg-gray-800/50 p-6 rounded-2xl border border-gray-700 shadow-lg animate-pop-in"
+            style={{ "--delay": `${index * 100}ms` }}
+          >
+            <Image
+              src={item.src}
+              alt={`Tutorial untuk gerakan ${item.label}`}
+              width={150}
+              height={150}
+              className="rounded-lg"
+            />
+            <p className="text-xl font-bold text-teal-400 tracking-wider">
+              {item.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={onStartGame}
+        className="px-8 py-4 bg-teal-500 text-white font-bold rounded-lg shadow-lg hover:bg-teal-400 focus:outline-none focus:ring-4 focus:ring-teal-300/50 transition-all duration-300 transform hover:scale-105 active:scale-95"
+      >
+        Start the game
+      </button>
+    </div>
+  );
+}
+
+// =======================================================================
+// 🔹 KOMPONEN 1: DETEKTOR TANGAN (DENGAN PERBAIKAN)
+// =======================================================================
 
 function HandDetector({ onPrediction }) {
   const videoRef = useRef(null);
@@ -20,16 +108,13 @@ function HandDetector({ onPrediction }) {
   const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. Muat model
   useEffect(() => {
     tf.setBackend("webgl");
     const loadModel = async () => {
-      console.log("Memuat model deteksi...");
       try {
         const m = await tf.loadGraphModel(HAND_DETECTOR_CONFIG.MODEL_PATH);
         setModel(m);
         setLoading(false);
-        console.log("✅ Model deteksi berhasil dimuat!");
       } catch (error) {
         console.error("Gagal memuat model deteksi:", error);
       }
@@ -37,14 +122,10 @@ function HandDetector({ onPrediction }) {
     loadModel();
   }, []);
 
-  // 2. Mulai kamera
   useEffect(() => {
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-          audio: false,
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play();
@@ -56,7 +137,7 @@ function HandDetector({ onPrediction }) {
     startCamera();
   }, []);
 
-  // 3. Loop Deteksi
+  // ✅ KEMBALIKAN KE LOGIKA YANG BENAR
   useEffect(() => {
     if (!model || !videoRef.current) return;
     let animationId;
@@ -65,10 +146,13 @@ function HandDetector({ onPrediction }) {
         const video = videoRef.current;
         tf.tidy(() => {
           const inputTensor = tf.browser.fromPixels(video).resizeBilinear([640, 640]).div(255.0).expandDims(0);
+
+          // Logika pemrosesan output model yang benar untuk model ini
           const outputs = model.execute(inputTensor);
           const transposed = outputs.transpose([0, 2, 1]);
           const boxes = transposed.squeeze();
           const detections = boxes.arraySync();
+
           drawBoxes(detections, video, canvasRef.current);
         });
       }
@@ -78,7 +162,7 @@ function HandDetector({ onPrediction }) {
     return () => cancelAnimationFrame(animationId);
   }, [model]);
 
-  // 4. Gambar Bounding Box
+  // ✅ KEMBALIKAN FUNGSI drawBoxes KE VERSI YANG BENAR
   const drawBoxes = (detections, video, canvas) => {
     const ctx = canvas.getContext("2d");
     canvas.width = video.videoWidth;
@@ -102,7 +186,6 @@ function HandDetector({ onPrediction }) {
       const classIndex = classScores.indexOf(Math.max(...classScores));
       const label = HAND_DETECTOR_CONFIG.CLASS_NAMES[classIndex];
 
-      // 🚀 KIRIM PREDIKSI KE KOMPONEN INDUK
       onPrediction(label);
 
       const scaleX = video.videoWidth / 640;
@@ -112,91 +195,57 @@ function HandDetector({ onPrediction }) {
       const boxW = w * scaleX;
       const boxH = h * scaleY;
 
-      ctx.strokeStyle = "lime";
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#10B981"; // Emerald-500
+      ctx.lineWidth = 4;
       ctx.strokeRect(x1, y1, boxW, boxH);
+
       const text = `${label} (${(maxOverallScore * 100).toFixed(1)}%)`;
-      ctx.fillStyle = "lime";
-      ctx.font = "18px Arial";
+      ctx.fillStyle = "#10B981";
+      ctx.font = "18px sans-serif";
       const textWidth = ctx.measureText(text).width;
-      ctx.fillRect(x1, y1 > 20 ? y1 - 22 : y1, textWidth + 10, 22);
-      ctx.fillStyle = "black";
+      ctx.fillRect(x1 - 2, y1 > 20 ? y1 - 22 : y1, textWidth + 12, 22);
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillText(text, x1 + 5, y1 > 20 ? y1 - 5 : y1 + 15);
     }
   };
 
   return (
-    <div className="flex flex-col items-center">
-      <h2 className="text-xl font-bold mb-2">
-        {loading ? "⏳ Memuat Kamera..." : "✅ Kamera Siap"}
+    <div className="w-full max-w-lg mx-auto">
+      <h2 className="text-2xl font-bold text-white mb-4 text-center">
+        {loading ? "⏳ LOADING CAMERA..." : "✅ CAMERA READY"}
       </h2>
-      <div className="relative border-4 border-gray-300 rounded-lg overflow-hidden">
-        <video ref={videoRef} autoPlay playsInline muted width="480" height="360" style={{ transform: "scaleX(-1)" }} />
-        <canvas ref={canvasRef} width="480" height="360" className="absolute top-0 left-0" style={{ transform: "scaleX(-1)" }} />
+      <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-700 bg-gray-900">
+        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
+        <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" style={{ transform: "scaleX(-1)" }} />
       </div>
     </div>
   );
 }
 
-// = a new helper function outside the component
-// to draw rectangles with rounded corners.
-function drawRoundedRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.arcTo(x + width, y, x + width, y + radius, radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
-  ctx.lineTo(x + radius, y + height);
-  ctx.arcTo(x, y + height, x, y + height - radius, radius);
-  ctx.lineTo(x, y + radius);
-  ctx.arcTo(x, y, x + radius, y, radius);
-  ctx.closePath();
-  ctx.fill();
-}
-
 
 // =======================================================================
-// 🔹 KOMPONEN 2: GAME SNAKE (DENGAN TAMPILAN BARU)
+// 🔹 KOMPONEN 2: GAME SNAKE (DENGAN WARNA BARU)
 // =======================================================================
-
-const GAME_CONFIG = {
-  BOARD_SIZE_X: 17,
-  BOARD_SIZE_Y: 15,
-  GRID_SIZE: 20,
-  INITIAL_SPEED: 200,
-  SNAKE_BORDER_RADIUS: 6, // Atur radius di sini (misal: 10 untuk lingkaran penuh)
-};
 
 function SnakeGame({ direction }) {
   const canvasRef = useRef(null);
-
-  // ... (semua logika state dan fungsi lain tetap sama)
-  const generateFoodPosition = (snakeBody) => {
-    let newFoodPosition;
-    do {
-      newFoodPosition = {
-        x: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE_X),
-        y: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE_Y),
-      };
-    } while (
-      snakeBody.some(
-        (segment) => segment.x === newFoodPosition.x && segment.y === newFoodPosition.y
-      )
-    );
-    return newFoodPosition;
-  };
-
-  const getInitialSnake = () => [{ x: 8, y: 7 }];
-
-  const [snake, setSnake] = useState(getInitialSnake);
-  const [food, setFood] = useState(() => generateFoodPosition(getInitialSnake()));
+  const [snake, setSnake] = useState(() => [{ x: 8, y: 7 }]);
+  const [food, setFood] = useState(() => generateFoodPosition([{ x: 8, y: 7 }]));
   const [currentDirection, setCurrentDirection] = useState({ x: 0, y: -1 });
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
+  const [isScoreAnimating, setIsScoreAnimating] = useState(false);
+
+  useEffect(() => {
+    if (score > 0) {
+      setIsScoreAnimating(true);
+      const timer = setTimeout(() => setIsScoreAnimating(false), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [score]);
 
   const resetGame = () => {
-    const initialSnake = getInitialSnake();
+    const initialSnake = [{ x: 8, y: 7 }];
     setSnake(initialSnake);
     setFood(generateFoodPosition(initialSnake));
     setCurrentDirection({ x: 0, y: -1 });
@@ -204,41 +253,59 @@ function SnakeGame({ direction }) {
     setScore(0);
   };
 
+  function generateFoodPosition(snakeBody) {
+    let newFoodPosition;
+    do {
+      newFoodPosition = {
+        x: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE_X),
+        y: Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE_Y),
+      };
+    } while (snakeBody.some(segment => segment.x === newFoodPosition.x && segment.y === newFoodPosition.y));
+    return newFoodPosition;
+  };
+
   useEffect(() => {
     if (gameOver) return;
-    const move = direction.toLowerCase();
-    if (move === "atas" && currentDirection.y === 1) return;
-    if (move === "bawah" && currentDirection.y === -1) return;
-    if (move === "kiri" && currentDirection.x === 1) return;
-    if (move === "kanan" && currentDirection.x === -1) return;
-    switch (move) {
-      case "atas": setCurrentDirection({ x: 0, y: -1 }); break;
-      case "bawah": setCurrentDirection({ x: 0, y: 1 }); break;
-      case "kiri": setCurrentDirection({ x: -1, y: 0 }); break;
-      case "kanan": setCurrentDirection({ x: 1, y: 0 }); break;
-      default: break;
+
+    switch (direction) {
+      case "up":
+        if (currentDirection.y !== 1) setCurrentDirection({ x: 0, y: -1 });
+        break;
+      case "down":
+        if (currentDirection.y !== -1) setCurrentDirection({ x: 0, y: 1 });
+        break;
+      case "left":
+        if (currentDirection.x !== 1) setCurrentDirection({ x: -1, y: 0 });
+        break;
+      case "right":
+        if (currentDirection.x !== -1) setCurrentDirection({ x: 1, y: 0 });
+        break;
+      default:
+        break;
     }
   }, [direction, gameOver]);
+
 
   useEffect(() => {
     if (gameOver) return;
     const gameInterval = setInterval(() => {
-      setSnake((prevSnake) => {
+      setSnake(prevSnake => {
         const newSnake = [...prevSnake];
         const head = { ...newSnake[0] };
         head.x += currentDirection.x;
         head.y += currentDirection.y;
-        if (head.x < 0 || head.x >= GAME_CONFIG.BOARD_SIZE_X || head.y < 0 || head.y >= GAME_CONFIG.BOARD_SIZE_Y) {
+
+        if (
+          head.x < 0 || head.x >= GAME_CONFIG.BOARD_SIZE_X ||
+          head.y < 0 || head.y >= GAME_CONFIG.BOARD_SIZE_Y ||
+          newSnake.some(segment => segment.x === head.x && segment.y === head.y)
+        ) {
           setGameOver(true);
           return prevSnake;
         }
-        for (let i = 1; i < newSnake.length; i++) {
-          if (head.x === newSnake[i].x && head.y === newSnake[i].y) {
-            setGameOver(true);
-            return prevSnake;
-          }
-        }
+
         newSnake.unshift(head);
+
         if (head.x === food.x && head.y === food.y) {
           setScore(s => s + 10);
           setFood(generateFoodPosition(newSnake));
@@ -249,81 +316,65 @@ function SnakeGame({ direction }) {
       });
     }, GAME_CONFIG.INITIAL_SPEED);
     return () => clearInterval(gameInterval);
-  }, [snake, currentDirection, food, gameOver]);
+  }, [currentDirection, food, gameOver]);
 
-  // ✅ PERUBAHAN UTAMA ADA DI SINI (LOGIKA RENDER)
   useEffect(() => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const gridSize = GAME_CONFIG.GRID_SIZE;
-    const radius = GAME_CONFIG.SNAKE_BORDER_RADIUS;
+    const { GRID_SIZE, SNAKE_BORDER_RADIUS } = GAME_CONFIG;
 
-    // 1. Gambar latar belakang (pola grid) - tetap sama
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let row = 0; row < GAME_CONFIG.BOARD_SIZE_Y; row++) {
       for (let col = 0; col < GAME_CONFIG.BOARD_SIZE_X; col++) {
-        ctx.fillStyle = (row + col) % 2 === 0 ? "#A3D866" : "#83C94D";
-        ctx.fillRect(col * gridSize, row * gridSize, gridSize, gridSize);
+        ctx.fillStyle = (row + col) % 2 === 0 ? "#2D3748" : "#1A202C";
+        ctx.fillRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
       }
     }
 
-    // 2. Gambar ular dengan tampilan baru
     snake.forEach((segment, index) => {
-      const x = segment.x * gridSize;
-      const y = segment.y * gridSize;
-
+      const x = segment.x * GRID_SIZE, y = segment.y * GRID_SIZE;
       if (index === 0) {
-        // KEPALA ULAR: Buat gradient berdasarkan arah gerak
         let gradient;
-        if (currentDirection.x === 1) { // Kanan
-          gradient = ctx.createLinearGradient(x, y, x + gridSize, y);
-        } else if (currentDirection.x === -1) { // Kiri
-          gradient = ctx.createLinearGradient(x + gridSize, y, x, y);
-        } else if (currentDirection.y === 1) { // Bawah
-          gradient = ctx.createLinearGradient(x, y, x, y + gridSize);
-        } else { // Atas
-          gradient = ctx.createLinearGradient(x, y + gridSize, x, y);
-        }
-
-        gradient.addColorStop(0, "#5E9EFF"); // Warna gradient awal
-        gradient.addColorStop(1, "#2F65C0"); // Warna gradient akhir
+        if (currentDirection.x === 1) gradient = ctx.createLinearGradient(x, y, x + GRID_SIZE, y);
+        else if (currentDirection.x === -1) gradient = ctx.createLinearGradient(x + GRID_SIZE, y, x, y);
+        else if (currentDirection.y === 1) gradient = ctx.createLinearGradient(x, y, x, y + GRID_SIZE);
+        else gradient = ctx.createLinearGradient(x, y + GRID_SIZE, x, y);
+        gradient.addColorStop(0, "#38B2AC"); gradient.addColorStop(1, "#319795");
         ctx.fillStyle = gradient;
-
       } else {
-        // BADAN ULAR: Warna solid
-        ctx.fillStyle = "#3668A6";
+        // ✅ WARNA BARU UNTUK BADAN ULAR
+        ctx.fillStyle = "#2C7A7B"; // Warna Teal lebih gelap
       }
-
-      // Gambar segmen menggunakan fungsi baru
-      drawRoundedRect(ctx, x + 1, y + 1, gridSize - 2, gridSize - 2, radius);
+      drawRoundedRect(ctx, x + 2, y + 2, GRID_SIZE - 4, GRID_SIZE - 4, SNAKE_BORDER_RADIUS);
     });
 
-    // 3. Gambar makanan dengan tampilan baru (opsional)
-    ctx.fillStyle = "#E86F6F";
-    drawRoundedRect(ctx, food.x * gridSize + 1, food.y * gridSize + 1, gridSize - 2, gridSize - 2, radius);
-
-    // TAMBAHKAN `currentDirection` karena gradient bergantung padanya
+    ctx.fillStyle = "#F56565";
+    drawRoundedRect(ctx, food.x * GRID_SIZE + 2, food.y * GRID_SIZE + 2, GRID_SIZE - 4, GRID_SIZE - 4, SNAKE_BORDER_RADIUS);
   }, [snake, food, currentDirection]);
 
-  // Return JSX (tetap sama)
+  // JSX return tidak berubah
   return (
-    <div className="flex flex-col items-center">
-      <h2 className="text-xl font-bold mb-2">Skor: {score}</h2>
-      <div className="relative">
+    <div className="w-full max-w-lg mx-auto flex flex-col items-center">
+      <div className={`mb-4 text-center bg-gray-900/50 backdrop-blur-sm p-4 rounded-xl shadow-lg transition-transform duration-200 ${isScoreAnimating ? 'scale-110' : 'scale-100'}`}>
+        <span className="text-lg font-semibold text-gray-300">SCORE</span>
+        <p className="text-5xl font-bold text-white tracking-wider">{score}</p>
+      </div>
+      <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-700">
         <canvas
           ref={canvasRef}
           width={GAME_CONFIG.BOARD_SIZE_X * GAME_CONFIG.GRID_SIZE}
           height={GAME_CONFIG.BOARD_SIZE_Y * GAME_CONFIG.GRID_SIZE}
-          className="bg-gray-800 border-4 border-gray-300 rounded-lg"
         />
         {gameOver && (
-          <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-70">
-            <h3 className="text-4xl text-white font-bold">GAME OVER</h3>
+          <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm animate-fade-in">
+            <h3 className="text-6xl text-white font-extrabold tracking-tighter animate-pop-in" style={{ "--delay": "100ms" }}>GAME OVER</h3>
             <button
               onClick={resetGame}
-              className="mt-4 px-4 py-2 bg-green-500 text-white font-bold rounded hover:bg-green-600"
+              className="mt-6 px-6 py-3 bg-teal-500 text-white font-bold rounded-lg shadow-lg hover:bg-teal-400 focus:outline-none focus:ring-4 focus:ring-teal-300/50 transition-all duration-300 transform hover:scale-105 active:scale-95 animate-pop-in"
+              style={{ "--delay": "250ms" }}
             >
-              Mulai Lagi
+              Play Again
             </button>
           </div>
         )}
@@ -334,37 +385,62 @@ function SnakeGame({ direction }) {
 
 
 // =======================================================================
-// 🔹 KOMPONEN 3: HALAMAN UTAMA (Induk)
+// 🔹 KOMPONEN 3: HALAMAN UTAMA (GamePage)
 // =======================================================================
 
 export default function GamePage() {
-  const [lastPrediction, setLastPrediction] = useState("ATAS");
+  const [lastPrediction, setLastPrediction] = useState("UP");
+  const [showTutorial, setShowTutorial] = useState(true); // ✅ Tambah state
 
-  // Fungsi callback yang akan menerima prediksi dari HandDetector
   const handlePrediction = (prediction) => {
-    console.log("Gerakan terdeteksi:", prediction);
-    setLastPrediction(prediction);
+    const mapped = MOVE_MAPPING[prediction] || prediction;
+    if (mapped !== lastPrediction) {
+      setLastPrediction(mapped);
+    }
   };
 
+
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-4xl font-extrabold mb-6 text-gray-800">Snake AI 🐍</h1>
-      <p className="mb-8 text-gray-600">Gunakan gerakan tangan untuk mengontrol ular!</p>
+    <main className="flex flex-col items-center justify-center min-h-screen w-full bg-gray-900 text-white p-4 lg:p-8 overflow-hidden">
+      {/* Background effect */}
+      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-black z-0"></div>
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full filter blur-3xl animate-pulse-slow"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-500/10 rounded-full filter blur-3xl animate-pulse-slow animation-delay-4000"></div>
 
-      <div className="flex flex-col md:flex-row gap-8 w-full max-w-6xl justify-center items-start">
-        {/* Sisi Kiri: Game Snake */}
-        <div className="w-full md:w-auto">
-          <SnakeGame direction={lastPrediction} />
-        </div>
+      <div className="relative z-10 w-full flex flex-col items-center">
+        <header className="text-center mb-8 animate-fade-in">
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-emerald-500">
+            Snake AI 🐍
+          </h1>
+          <p className="mt-2 text-lg text-gray-400">
+            Controll the snake with your hand commands!
+          </p>
+        </header>
 
-        {/* Sisi Kanan: Tampilan Kamera */}
-        <div className="w-full md:w-auto">
-          <HandDetector onPrediction={handlePrediction} />
-          <div className="mt-4 p-4 bg-white rounded-lg shadow-md w-[480px] text-center">
-            <h3 className="font-semibold text-lg">Perintah Terakhir:</h3>
-            <p className="text-2xl font-bold text-red-600">{lastPrediction}</p>
+        {/* ✅ Tampilkan tutorial dulu, game setelahnya */}
+        {showTutorial ? (
+          <TutorialScreen onStartGame={() => setShowTutorial(false)} />
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-8 w-full max-w-7xl justify-center items-start">
+            {/* Sisi kiri: Game */}
+            <section className="w-full lg:w-1/2 animate-slide-in-left">
+              <SnakeGame direction={lastPrediction} />
+            </section>
+
+            {/* Sisi kanan: Kamera & Info */}
+            <section className="w-full lg:w-1/2 flex flex-col gap-8 animate-slide-in-right">
+              <HandDetector onPrediction={handlePrediction} />
+              <div className="w-full max-w-lg mx-auto bg-gray-900/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-700 text-center">
+                <h3 className="font-semibold text-lg text-gray-300">
+                  COMMAND DETECTED
+                </h3>
+                <p className="text-4xl font-bold text-teal-400 tracking-wider mt-2">
+                  {lastPrediction.toUpperCase()}
+                </p>
+              </div>
+            </section>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );

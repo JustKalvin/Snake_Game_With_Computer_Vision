@@ -18,22 +18,90 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
+  background: linear-gradient(to bottom,
       transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+
   .gradient {
     @apply bg-gradient-to-b from-white via-gray-300 to-gray-600;
   }
+
   .gradient-title {
     @apply gradient text-transparent bg-clip-text;
   }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes floatX {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(15px);
+  }
+}
+
+@keyframes floatXRight {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(20px);
+  }
+
+  /* geser ke kanan */
+}
+
+@keyframes floatXLeft {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(-20px);
+  }
+
+  /* geser ke kiri */
+}
+
+.animate-float-slow-right {
+  animation: floatXRight 10s ease-in-out infinite;
+}
+
+.animate-float-slow-left {
+  animation: floatXLeft 10s ease-in-out infinite;
+}
+
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-fast {
+  animation: floatX 5s ease-in-out infinite;
 }
